@@ -1,0 +1,11 @@
+[package]
+name = "sample-browser"
+version = "0.1.0"
+edition = "2024"
+build = "build.rs"
+
+[dependencies]
+anyhow = "1.0.95"
+eframe = { version = "0.31.0", features = ["persistence"] }
+rfd = "0.15.2"
+rodio = { version = "0.20.1", features = ["symphonia-all"] }
