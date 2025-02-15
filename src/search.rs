@@ -62,7 +62,7 @@ pub fn search(search_str: String) -> Vec<PathBuf> {
 
     let result_len = unsafe { Everything_GetNumResults() };
 
-    for i in 0..std::cmp::min(result_len, 100) {
+    for i in 0..result_len {
         let path_lpstr = unsafe { Everything_GetResultPathW(i) };
         let fname_lpstr = unsafe { Everything_GetResultFileNameW(i) };
         out.push(LPCWSTRs_to_pathbuf(path_lpstr,fname_lpstr));

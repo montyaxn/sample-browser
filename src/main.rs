@@ -22,9 +22,7 @@ fn main() {
     eframe::run_native(
         "Everything Sample Browser",
         native_options,
-        Box::new(|cc| {
-            Ok(Box::new(BrowserApp::new(cc)))
-        }),
+        Box::new(|cc| Ok(Box::new(BrowserApp::new(cc)))),
     )
     .unwrap();
 }
@@ -34,6 +32,7 @@ struct BrowserApp {
     source_path: Option<PathBuf>,
     stream: Option<OutputStream>,
     sink: Option<Sink>,
+    volume: f32,
 
     search_text: String,
     search_results: Vec<PathBuf>,
@@ -50,7 +49,10 @@ impl BrowserApp {
         // Use the cc.gl (a glow::Context) to create graphics shaders and buffers that you can use
         // for e.g. egui::PaintCallback.
 
-        Self::default()
+        Self {
+            volume: 0.7,
+            ..Default::default()
+        }
     }
 
     fn start_playback(&mut self) -> anyhow::Result<()> {
@@ -59,6 +61,7 @@ impl BrowserApp {
             self.stream = Some(stream);
 
             let sink = Sink::try_new(&stream_handle).unwrap();
+            sink.set_volume(self.volume);
 
             let file = File::open(path)?;
             let data = BufReader::new(file);
@@ -119,7 +122,9 @@ impl eframe::App for BrowserApp {
     fn update(&mut self, ctx: &eframe::egui::Context, frame: &mut eframe::Frame) {
         ctx.set_visuals(egui::Visuals::dark());
         egui::CentralPanel::default().show(ctx, |ui| {
-            let mut search_bar = egui::TextEdit::singleline(&mut self.search_text).show(ui);
+            let mut search_bar = egui::TextEdit::singleline(&mut self.search_text)
+                .hint_text("Type your query")
+                .show(ui);
             if search_bar.response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                 self.search_results =
                     search::search("ext:wav;mp3 ".to_string() + &self.search_text);
@@ -138,25 +143,45 @@ impl eframe::App for BrowserApp {
                 search_bar.state.store(ui.ctx(), search_bar.response.id);
             }
 
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                let mut clicked = false;
-                for (i, path) in self.search_results.iter().enumerate() {
-                    let response =
-                        ui.selectable_label(i == self.search_index, path.to_string_lossy());
-                    if i == self.search_index && self.search_should_scroll {
-                        response.scroll_to_me(None);
-                        self.search_should_scroll = false;
-                    }
-                    if response.clicked() {
-                        self.search_index = i;
-                        self.source_path = Some(path.clone());
-                        clicked = true;
-                    }
+            if ui
+                .add(egui::Slider::new(&mut self.volume, 0.0..=1.0).text("volume"))
+                .changed()
+            {
+                if let Some(sink) = &self.sink {
+                    sink.set_volume(self.volume);
                 }
-                if clicked {
-                    self.start_playback();
-                };
-            });
+            }
+
+            let text_style = egui::TextStyle::Body;
+            let row_height = ui.text_style_height(&text_style);
+            egui::ScrollArea::vertical()
+                .auto_shrink([false; 2])
+                .show_rows(
+                    ui,
+                    row_height,
+                    self.search_results.len() as usize,
+                    |ui, row_range| {
+                        let mut clicked = false;
+                        for i in row_range {
+                            let response = ui.selectable_label(
+                                i == self.search_index,
+                                self.search_results[i].to_string_lossy(),
+                            );
+                            if i == self.search_index && self.search_should_scroll {
+                                response.scroll_to_me(None);
+                                self.search_should_scroll = false;
+                            }
+                            if response.clicked() {
+                                self.search_index = i;
+                                self.source_path = Some(self.search_results[i].clone());
+                                clicked = true;
+                            }
+                        }
+                        if clicked {
+                            self.start_playback();
+                        };
+                    },
+                );
         });
 
         if ctx.input(|i| i.key_pressed(Key::Space)) {
