@@ -13,6 +13,7 @@ unsafe extern "C" {
     fn Everything_QueryW(bWait: c_int);
     fn Everything_SetSearchW(lpString: LPCWSTR);
     fn Everything_SetRequestFlags(dwRequestFlags: DWARD);
+    fn Everything_SetMatchPath(bEnable: c_int);
     fn Everything_GetNumResults() -> DWARD;
     fn Everything_GetResultPathW(index: DWARD) -> LPCWSTR;
     fn Everything_GetResultFileNameW(index: DWARD) -> LPCWSTR;
@@ -54,7 +55,8 @@ pub fn search(search_str: String) -> Vec<PathBuf> {
     let search_str = string_to_u16s(search_str);
     let search_lpstr = search_str.as_ptr();
     unsafe {
-        Everything_SetRequestFlags(0x00000003);
+        Everything_SetRequestFlags(0x00000007);
+        Everything_SetMatchPath(1);
         Everything_SetSearchW(search_lpstr);
 
         Everything_QueryW(1);
